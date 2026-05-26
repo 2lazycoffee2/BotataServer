@@ -1,4 +1,9 @@
-def run(server_class=HTTPServer, handler_class=BaseHTTPRequestHandler):
-    server_address = ('', 8000)
+import http.server
+from martypy import Marty
+
+def run(server_class=http.server.HTTPServer, handler_class=http.server.BaseHTTPRequestHandler):
+    server_address = ('', 8080)
     httpd = server_class(server_address, handler_class)
-    httpd.serve_forever()
+    httpd.server_forever()
+
+my_mart = Marty("wifi", "192.168.0.111")
