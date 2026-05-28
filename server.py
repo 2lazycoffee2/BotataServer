@@ -16,12 +16,15 @@ class Handling(http.server.BaseHTTPRequestHandler):
             self.send_response(200)
             self.send_header('Content-type', 'text/plain')
             self.end_headers()
-            self.wfile.write(b"1.2\n") 
+            self.wfile.write(b"1.2\n")
+
         elif parsed.path == "/score":
-
-            self.send_response(200)
-
-        
+            params = urllib.parse.parse_qs(parsed.query)
+            rid = params.get('rid', [''])[0]
+            score = robots.get(rid, {}).get('score', 0)
+            self._repondre(200, score)
+            
+            
 
     def do_POST(self):
         if self.parsed.path == "/hello" :
