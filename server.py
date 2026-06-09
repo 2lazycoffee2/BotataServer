@@ -1,9 +1,13 @@
 import http.server
 from martypy import Marty
 import urllib
-
+import random
+import string 
 robots = {}
 
+ 
+def generer_rid():
+    return ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
 
 class Handling(http.server.BaseHTTPRequestHandler):
 
@@ -27,8 +31,15 @@ class Handling(http.server.BaseHTTPRequestHandler):
             
 
     def do_POST(self):
-        if self.parsed.path == "/hello" :
-            print("hello")
+        parsed = urllib.parse.urlparse(self.path)
+        if parsed.path == "/hello" :
+            rid = generer_rid()
+            while rid in robots :
+                rid = generer_rid()
+            robots[rid] = {'score': 0, 'steps': 0}
+            print(f"[HELLO] Nouveau robot enregistré → {rid}")
+            self._repondre(200, rid)
+
         
 def run(server_class=http.server.HTTPServer, handler_class=http.server.BaseHTTPRequestHandler):
     server_address = ('', 8080)
