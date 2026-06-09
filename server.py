@@ -49,8 +49,17 @@ class Handling(http.server.BaseHTTPRequestHandler):
             while rid in robots :
                 rid = generer_rid()
             robots[rid] = {'score': 0, 'steps': 0}
-            print(f"Nouveau robot enregistré : {rid}")
+            print(f"[HELLO] Nouveau robot enregistré : {rid}")
             self._repondre(200, rid)
+        
+        elif parsed.path == "/start" :
+            rid = body.get('rid', '')
+            if rid not in robots:
+                self._repondre(404, f"Robot inconnu : {rid}")
+                return
+            nb_pas = 10  
+            print(f"[START] Robot {rid} démarre")
+            self._repondre(200, nb_pas)
 
         
 def run(server_class=http.server.HTTPServer, handler_class=http.server.BaseHTTPRequestHandler):
