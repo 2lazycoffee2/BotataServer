@@ -11,33 +11,45 @@ def generer_rid():
 
 class Handling(http.server.BaseHTTPRequestHandler):
 
-
+    def _lire_body(self):
+        length = int(self.headers.get('Content-Length', 0))
+        raw = self.rfile.read(length).decode('utf-8')
+        parsed = urllib.parse.parse_qs(raw)
+        return {k: v[0] for k, v in parsed.items()}
+    
+    def _repondre(self, code, corps) :
+        self.send_response(code)
+        self.send_header('Content-Type', 'text/plain')
+        self.end_headers()
+        self.wfile.write(str(corps).encode('utf-8'))
 
     def do_GET(self):
         parsed = urllib.parse.urlparse(self.path)
    
         if parsed.path == "/": 
-            self.send_response(200)
-            self.send_header('Content-type', 'text/plain')
-            self.end_headers()
-            self.wfile.write(b"1.2\n")
+            self._repondre(200, 1.2)
 
         elif parsed.path == "/score":
             params = urllib.parse.parse_qs(parsed.query)
             rid = params.get('rid', [''])[0]
-            score = robots.get(rid, {}).get('score', 0)
-            self._repondre(200, score)
+            if rid not in robots:
+                self._repondre(404, f"Robot inconnu : {rid}" )           
+                return
             
+            score = robots.get(rid, {}).get('score', 0)
+            self._repondre(200, f"Score : {score}")
             
 
     def do_POST(self):
         parsed = urllib.parse.urlparse(self.path)
+        body = self._lire_body()
+        
         if parsed.path == "/hello" :
             rid = generer_rid()
             while rid in robots :
                 rid = generer_rid()
             robots[rid] = {'score': 0, 'steps': 0}
-            print(f"[HELLO] Nouveau robot enregistré → {rid}")
+            print(f"Nouveau robot enregistré : {rid}")
             self._repondre(200, rid)
 
         
@@ -45,9 +57,6 @@ def run(server_class=http.server.HTTPServer, handler_class=http.server.BaseHTTPR
     server_address = ('', 8080)
     httpd = server_class(server_address, handler_class)
     httpd.serve_forever()
-
-#my_mart = Marty("wifi", "192.168.0.111")
-#voir le /api
 
  
 if __name__ == '__main__' :
