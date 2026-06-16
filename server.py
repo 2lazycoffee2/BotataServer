@@ -3,9 +3,27 @@ import urllib.parse
 import random
 import string
 import json
+import threading
 
+# ── État partagé ────────────────────────────────────────────────────────────
+_lock = threading.Lock()
 robots = {}
 battle_rules = {}
+
+_event_callback = None
+
+def set_event_callback(fn):
+    """Enregistre une fonction appelée à chaque événement serveur."""
+    global _event_callback
+    _event_callback = fn
+
+def _emit(message, level="info"):
+    """Émet un événement vers le callback enregistré (si présent)."""
+    if _event_callback:
+        _event_callback(message, level)
+    else:
+        print(f"[{level.upper()}] {message}")
+
 
 def generer_rid():
     return ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
@@ -41,7 +59,8 @@ def charger_battle(chemin):
                     "op": op,
                     "points": points
                 })
-    print(f"[BATTLE] Chargé : {battle_rules}")
+    _emit(f"Fichier .battle chargé — MVS={battle_rules.get('mvs', '?')} | Couleurs : {[k for k in battle_rules if k != 'mvs']}", "success")
+    return battle_rules
 
 
 def calculer_points(col, arm, exp):
@@ -118,7 +137,7 @@ class Handling(http.server.BaseHTTPRequestHandler):
             while rid in robots:
                 rid = generer_rid()
             robots[rid] = {'score': 0, 'steps': 0}
-            print(f"[HELLO] Nouveau robot : {rid}")
+            _emit(f"POST /hello → Nouveau robot enregistré : {rid}", "success")
             self._repondre(200, {"rid": rid})                  # ← clé "rid"
 
         elif parsed.path == "/start":
@@ -127,7 +146,7 @@ class Handling(http.server.BaseHTTPRequestHandler):
                 self._repondre(404, {"error": f"Robot inconnu : {rid}"})
                 return
             nb_pas = battle_rules.get("mvs", 10)
-            print(f"[START] Robot {rid} démarre ({nb_pas} pas)")
+            _emit(f"POST /start [{rid}] → chorégraphie démarrée ({nb_pas} mouvements)", "info")
             self._repondre(200, {"steps": nb_pas})             # ← clé "steps"
 
         elif parsed.path == "/step":
@@ -141,7 +160,7 @@ class Handling(http.server.BaseHTTPRequestHandler):
             points = calculer_points(col, arm, exp)            # ← sans rid
             robots[rid]['score'] += points
             robots[rid]['steps'] += 1
-            print(f"[STEP] Robot {rid} | col={col} arm={arm} exp={exp} -> +{points} pt(s)")
+            _emit(f"POST /step [{rid}] col={col} arm={arm} exp={exp} → +{points} pt(s)", "step")
             self._repondre(200, {"points": points})            # ← clé "points"
 
         elif parsed.path == "/bye":
@@ -149,7 +168,7 @@ class Handling(http.server.BaseHTTPRequestHandler):
             if rid not in robots:
                 self._repondre(404, {"error": f"Robot inconnu : {rid}"})
                 return
-            print(f"[BYE] Robot {rid} (score final : {robots[rid]['score']})")
+            _emit(f"POST /bye [{rid}] → déconnecté (score final : {robots[rid]['score']})", "warning")
             del robots[rid]
             self.send_response(200)
             self.end_headers()
@@ -158,14 +177,18 @@ class Handling(http.server.BaseHTTPRequestHandler):
             self._repondre(404, {"error": "Route inconnue"})
 
 
-if __name__ == '__main__':
-    charger_battle("regles.battle")   # ← charge les règles au démarrage
+def creer_serveur(port=8080):
+    """Instancie et renvoie un HTTPServer prêt à être lancé."""
+    return http.server.HTTPServer(('', port), Handling)
 
-    server_address = ('', 8080)
-    httpd = http.server.HTTPServer(server_address, Handling)
-    print("[SERVER] Démarré sur le port 8080")
+
+if __name__ == '__main__':
+    charger_battle("regles.battle")   # charge les règles au démarrage
+
+    httpd = creer_serveur(8080)
+    _emit("Serveur démarré sur le port 8080", "info")
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
-        print("\n[SERVER] Arrêt.")
+        _emit("Arrêt du serveur.", "warning")
         httpd.server_close()
