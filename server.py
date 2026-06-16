@@ -10,9 +10,6 @@ _lock = threading.Lock()
 robots = {}
 battle_rules = {}
 
-# ── Système de callback (utilisé par ui.py pour recevoir les événements) ───
-# Signature : fn(message: str, level: str)
-# level : 'info' | 'success' | 'warning' | 'error' | 'step'
 _event_callback = None
 
 def set_event_callback(fn):
@@ -63,6 +60,7 @@ def charger_battle(chemin):
                     "points": points
                 })
     _emit(f"Fichier .battle chargé — MVS={battle_rules.get('mvs', '?')} | Couleurs : {[k for k in battle_rules if k != 'mvs']}", "success")
+    return battle_rules
 
 
 def calculer_points(col, arm, exp):
